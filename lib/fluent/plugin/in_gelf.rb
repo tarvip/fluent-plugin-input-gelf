@@ -18,7 +18,7 @@ module Fluent
     end
 
     desc "The value is the tag assigned to the generated events."
-    config_param :tag, :string
+    config_param :tag, :string, default: nil
     desc 'The format of the payload.'
     config_param :format, :string, default: 'json'
     desc 'The port to listen to.'
@@ -41,10 +41,14 @@ module Fluent
     config_param :strip_leading_underscore, :bool, default: true
     desc "The field name of the client's source address."
     config_param :source_address_key, :string, default: nil
+    desc 'Use source IP as tag'
+    config_param :source_ip_as_tag, :bool, default: false
 
     def configure(conf)
       super
-
+      if !@tag && !@source_ip_as_tag
+        raise ConfigError, "'tag' or 'source_ip_as_tag' option is required on gelf input"
+      end
       @parser = Plugin.new_parser(@format)
       @parser.configure(conf)
     end
@@ -98,7 +102,14 @@ module Fluent
         # Postprocess recorded event
         strip_leading_underscore_(record) if @strip_leading_underscore
 
-        emit(time, record)
+        # Use source_ip as tag
+        if @source_ip_as_tag
+          tag = addr[3]
+        else
+          tag = @tag
+        end
+
+        emit(tag, time, record)
       }
     rescue => e
       log.error data.dump, error: e.to_s
@@ -116,8 +127,8 @@ module Fluent
       end
     end
 
-    def emit(time, record)
-      router.emit(@tag, time, record)
+    def emit(tag, time, record)
+      router.emit(tag, time, record)
     rescue => e
       log.error 'gelf failed to emit', error: e.to_s, error_class: e.class.to_s, tag: @tag, record: Yajl.dump(record)
     end
