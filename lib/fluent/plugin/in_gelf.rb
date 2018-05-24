@@ -39,6 +39,8 @@ module Fluent
     config_param :blocking_timeout, :time, default: 0.5
     desc 'Strip leading underscore'
     config_param :strip_leading_underscore, :bool, default: true
+    desc "The field name of the client's source address."
+    config_param :source_address_key, :string, default: nil
 
     def configure(conf)
       super
@@ -86,6 +88,9 @@ module Fluent
           log.warn "pattern not match: #{msg.inspect}"
           return
         end
+
+        # add source_ip
+        record[@source_address_key] = addr[3] if @source_address_key
 
         # Use the recorded event time if available
         time = @float_time_parser.parse(record.delete('timestamp')) if record.key?('timestamp')
