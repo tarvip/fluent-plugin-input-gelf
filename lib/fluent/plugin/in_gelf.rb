@@ -5,6 +5,7 @@ require 'cool.io'
 require 'yajl'
 
 require 'fluent/input'
+require 'fluent/time'
 
 module Fluent
   class GelfInput < Fluent::Input
@@ -52,6 +53,7 @@ module Fluent
       @loop.attach(@handler)
 
       @thread = Thread.new(&method(:run))
+      @float_time_parser = Fluent::NumericTimeParser.new(:float)
     end
 
     def shutdown
@@ -86,7 +88,7 @@ module Fluent
         end
 
         # Use the recorded event time if available
-        time = record.delete('timestamp').to_i if record.key?('timestamp')
+        time = @float_time_parser.parse(record.delete('timestamp')) if record.key?('timestamp')
 
         # Postprocess recorded event
         strip_leading_underscore_(record) if @strip_leading_underscore
